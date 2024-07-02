@@ -1,10 +1,36 @@
+import os
 import sys
 import pickle
 import pandas as pd
 
 
+def get_s3_endpoint_url():
+    endpoint_url = os.getenv('S3_ENDPOINT_URL')
+    return endpoint_url
+
+
+def get_input_path(year, month):
+    default_input_pattern = 'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year:04d}-{month:02d}.parquet'
+    input_pattern = os.getenv('INPUT_FILE_PATTERN', default_input_pattern)
+    return input_pattern.format(year=year, month=month)
+
+
+def get_output_path(year, month):
+    default_output_pattern = 's3://nyc-duration-prediction-alexey/taxi_type=fhv/year={year:04d}/month={month:02d}/predictions.parquet'
+    output_pattern = os.getenv('OUTPUT_FILE_PATTERN', default_output_pattern)
+    return output_pattern.format(year=year, month=month)
+
 def read_data(filename) -> pd.DataFrame:
-    return pd.read_parquet(filename)
+    options = None
+    
+    if s3_endpoint_url := os.getenv('S3_ENDPOINT_URL'):
+        options = {
+            'client_kwargs': {
+                'endpoint_url': s3_endpoint_url
+            }
+        }
+
+    return pd.read_parquet(filename, storage_options=options)
 
 
 def prepare_data(df, categorical) -> pd.DataFrame:
@@ -23,8 +49,11 @@ def load_model(filename):
 
 
 def main(year, month):
-    input_file = f'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year:04d}-{month:02d}.parquet'
-    output_file = f'output/yellow_tripdata_{year:04d}-{month:02d}.parquet'
+    # input_file = f'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year:04d}-{month:02d}.parquet'
+    # output_file = f'output/yellow_tripdata_{year:04d}-{month:02d}.parquet'
+    
+    input_file = get_input_path(year, month)
+    output_file = get_output_path(year, month)
     model_file = 'model.bin'
     
     categorical = ['PULocationID', 'DOLocationID']
